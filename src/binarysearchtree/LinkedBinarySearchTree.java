@@ -9,9 +9,8 @@ import java.util.*;
 public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
 
 
-
     // Clase iterador
-    private class BSTIterator<T> implements Iterator<Position<T>>{
+    private class BSTIterator<T> implements Iterator<Position<T>> {
 
         private LinkedBinaryTree<T> binaryTree;
         private int notVisited;
@@ -25,16 +24,16 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
 
         @Override
         public boolean hasNext() {
-            return notVisited>0;
+            return notVisited > 0;
         }
 
         @Override
         public Position<T> next() {
-            if(notVisited == 0){
+            if (notVisited == 0) {
                 throw new RuntimeException("This tree has no more elements");
             }
             Position<T> next = it.next();
-            while(next == null){
+            while (next == null) {
                 next = it.next();
             }
             notVisited--;
@@ -42,16 +41,16 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
         }
     }
 
-    private LinkedBinaryTree<E> binaryTree;
+    protected LinkedBinaryTree<E> binaryTree;
     private Comparator<E> c;
     private int size;
 
-    public LinkedBinarySearchTree(){
+    public LinkedBinarySearchTree() {
         this(null); //MIRAR
     }
 
     public LinkedBinarySearchTree(Comparator<E> comparator) {
-        if(comparator == null) this.c = new DefaultComparator<>();
+        if (comparator == null) this.c = new DefaultComparator<>();
         else {
             this.binaryTree = binaryTree;
             this.c = comparator;
@@ -61,34 +60,34 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
 
     @Override
     public Position<E> find(E value) {
-        if(value == this.binaryTree.root().getElement()){
+        if (value == this.binaryTree.root().getElement()) {
             return this.binaryTree.root();
-        }else{
+        } else {
             return searchTree(this.binaryTree.root(), value);
         }
     }
 
-    private Position<E> searchTree(Position<E> pos, E value){
-        if(binaryTree.isLeaf(pos)){
+    private Position<E> searchTree(Position<E> pos, E value) {
+        if (binaryTree.isLeaf(pos)) {
             //Si es una hoja devolvemos un nodo externo
             return pos; //Creo q las hojas son nodos nulos que tienen al final
-        }else{
+        } else {
             E current = pos.getElement();
             int dif = c.compare(current, value);
             //NEGATIVO -> SI 1º < 2º
-            if(dif < 0){
+            if (dif < 0) {
                 searchTree(this.binaryTree.left(pos), value);
-            }else if(dif > 0){
+            } else if (dif > 0) {
                 searchTree(this.binaryTree.right(pos), value);
             }
             return pos;
         }
     }
 
-    private void addAll(E value, LinkedList<Position<E>> list, Position<E> aux){
-        if(aux != null){
+    private void addAll(E value, LinkedList<Position<E>> list, Position<E> aux) {
+        if (aux != null) {
             Position<E> pos = searchTree(aux, value);
-            if(!(this.binaryTree.isLeaf(pos))){ // si no es hoja
+            if (!(this.binaryTree.isLeaf(pos))) { // si no es hoja
                 //Ha encontrado una entrada con dicho valor...
                 //Buscamos por la izda... insercion por orden
                 addAll(value, list, this.binaryTree.left(pos));
@@ -109,15 +108,15 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
     public Position<E> insert(E value) {
         Position<E> pos = searchTree(this.binaryTree.root(), value);
         //Vamos a considerar aquellos que pueden tener valores repetidos...
-        while(! binaryTree.isLeaf(pos)){
+        while (!binaryTree.isLeaf(pos)) {
             //Buscamos por la dcha
             searchTree(binaryTree.right(pos), value);
         }
         return insertAtLeaf(pos, value);
     }
 
-    protected void expandLeaf(Position<E> aux, E v1, E v2){
-        if(!binaryTree.isLeaf(aux)){
+    protected void expandLeaf(Position<E> aux, E v1, E v2) {
+        if (!binaryTree.isLeaf(aux)) {
             throw new RuntimeException("This is not a external node");
         }
         binaryTree.insertLeft(aux, v1);
@@ -144,7 +143,7 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
         return toReturn;
     }
 
-    private void removeLeaf(Position<E> remove){
+    private void removeLeaf(Position<E> remove) {
         removeAboveLeaf(remove);
         this.size--;
     }
@@ -158,18 +157,18 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
     private Position<E> getLeafToRemove(Position<E> pos) {
         //Caso simple: es HOJA
         Position<E> resul = pos;
-        if(binaryTree.isLeaf(binaryTree.left(pos))){
+        if (binaryTree.isLeaf(binaryTree.left(pos))) {
             resul = binaryTree.left(pos); // esto pq le estoy pasando la hoja a NULL
-        }else if(binaryTree.isLeaf(binaryTree.right(pos))){
+        } else if (binaryTree.isLeaf(binaryTree.right(pos))) {
             resul = binaryTree.right(pos);
-        }else{
+        } else {
             //Nodo interno
             Position<E> swap = resul; //Guardamos para intercambio el que queremos borrar
             //Buscamos el sucesor
             resul = binaryTree.right(resul);
-            do{
+            do {
                 resul = binaryTree.left(resul);
-            }while(binaryTree.isInternal(resul));
+            } while (binaryTree.isInternal(resul));
             binaryTree.swap(swap, binaryTree.parent(resul));
         }
         return resul;
@@ -183,10 +182,10 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
     @Override
     public Iterable<Position<E>> findRange(E minValue, E maxValue) throws RuntimeException {
         ArrayList<Position<E>> l = new ArrayList<>();
-        if(c.compare(minValue, maxValue)>0){
+        if (c.compare(minValue, maxValue) > 0) {
             throw new RuntimeException("minvalue > maxvalue");
-        }else {
-            if (! binaryTree.isEmpty()) {
+        } else {
+            if (!binaryTree.isEmpty()) {
                 Position<E> root = this.binaryTree.root();
                 findRangeRec(l, root, minValue, maxValue);
             }
@@ -195,7 +194,7 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
     }
 
     private void findRangeRec(ArrayList<Position<E>> l, Position<E> pos, E minValue, E maxValue) {
-        if(!binaryTree.isLeaf(pos)) {
+        if (!binaryTree.isLeaf(pos)) {
             //Fuera de rango
             if (c.compare(pos.getElement(), minValue) < 0) {
                 findRangeRec(l, binaryTree.right(pos), minValue, maxValue);
@@ -203,7 +202,7 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
                 findRangeRec(l, binaryTree.left(pos), minValue, maxValue);
             }
             //Dentro de rango
-            else{
+            else {
                 findRangeRec(l, binaryTree.left(pos), minValue, maxValue);
                 l.add(pos);
                 findRangeRec(l, binaryTree.right(pos), minValue, maxValue);
@@ -213,11 +212,11 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
 
     @Override
     public Position<E> first() throws RuntimeException {
-        if(binaryTree.isEmpty()){
+        if (binaryTree.isEmpty()) {
             throw new RuntimeException("The tree is empty");
         }
         Position<E> f = binaryTree.root();
-        while( this.binaryTree.hasLeft(f)){
+        while (this.binaryTree.hasLeft(f)) {
             f = binaryTree.left(f);
         }
         return this.binaryTree.parent(f); //Los nodos hoja NO contienen datos
@@ -225,11 +224,11 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
 
     @Override
     public Position<E> last() throws RuntimeException {
-        if(binaryTree.isEmpty()){
+        if (binaryTree.isEmpty()) {
             throw new RuntimeException("The tree is empty");
         }
         Position<E> f = binaryTree.root();
-        while( this.binaryTree.hasRight(f)){
+        while (this.binaryTree.hasRight(f)) {
             f = binaryTree.right(f);
         }
         return this.binaryTree.parent(f); //Los nodos hoja NO contienen datos
@@ -249,9 +248,9 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
     public Iterator<Position<E>> iterator() {
         return new BSTIterator<>(binaryTree);
     }
-
+}
     //Clase reestructuracion
-    class Reestructurator<E> extends LinkedBinaryTree<E> {
+    public class Reestructurator<E> extends LinkedBinaryTree<E> {
         public Reestructurator(){
             this.addRoot(null); //Constructor vacio
         }
@@ -347,4 +346,3 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
             return medium;
         }
     }
-}
