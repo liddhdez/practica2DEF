@@ -15,6 +15,30 @@ public class AVLTree<E> implements BinarySearchTree<E> {
         this(new DefaultComparator<>());
     }
 
+    public class AVLIterator<T> implements Iterator<Position<T>> {
+
+        private Iterator<Position<AVLInfo<T>>> it;
+
+        public AVLIterator(Iterator<Position<AVLInfo<T>>> iterator) {
+            this.it = iterator;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return it.hasNext();
+        }
+
+        @Override
+        public Position<T> next() {
+            Position<AVLInfo<T>> aux = it.next();
+            return aux.getElement();
+        }
+
+        @Override
+        public void remove() {
+            it.remove();
+        }
+    }
     /**
      * Creates a BinarySearchTree with the given comparator.
      *
@@ -24,7 +48,7 @@ public class AVLTree<E> implements BinarySearchTree<E> {
         Comparator<AVLInfo<E>> avlComparator = (o1, o2) -> c.compare(o1.getElement(), o2.getElement());
         binTree = new LinkedBinarySearchTree<>(avlComparator);
         reestructurator = new Reestructurator<>();
-        binTree.binaryTree = reestructurator;
+        binTree.binTree = reestructurator;
     }
 
 
@@ -109,12 +133,16 @@ public class AVLTree<E> implements BinarySearchTree<E> {
 
     @Override
     public Position<E> insert(E value) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        AVLInfo<E> elem = new AVLInfo<>(value);
+        Position<AVLInfo<E>> pos = binTree.insert(elem);
+        elem.setTreePosition(pos); //OJO!!!
+        rebalance(pos);
+        return elem;
     }
 
     private int calculateHeight(Position<AVLInfo<E>> pos){
-        Position<AVLInfo<E>> left = binTree.binaryTree.left(pos);
-        Position<AVLInfo<E>> right = binTree.binaryTree.right(pos);
+        Position<AVLInfo<E>> left = binTree.binTree.left(pos);
+        Position<AVLInfo<E>> right = binTree.binTree.right(pos);
         int altLeft = 0;
         int altRight = 0;
         if(left != null){
@@ -133,19 +161,56 @@ public class AVLTree<E> implements BinarySearchTree<E> {
         return (alt > -2 && alt < 2);
     }
 
-    private Position<AVLInfo<E>> tallerChild(Position<E> pos){
-        Position<E> parent = binTree.binaryTree.parent(new AVLInfo<>(pos));
+    private Position<AVLInfo<E>> tallerChild(Position<AVLInfo<E>> pos){
+        int altLeft = 0;
+        int altRight = 0;
+        Position<AVLInfo<E>> leftChild = binTree.binTree.left(pos);
+        Position<AVLInfo<E>> rightChild = binTree.binTree.right(pos);
+
+        if(leftChild != null ){
+            altLeft = leftChild.getElement().height;
+        }
+        if(rightChild != null){
+            altRight = rightChild.getElement().height;
+        }
+
+        if(altLeft > altRight){
+            return leftChild;
+        }else if(altLeft < altRight){
+            return rightChild;
+        }else {
+            //Ahora suponemos que altLeft == altRight
+            if (binTree.binTree.isRoot(pos)) {
+                return leftChild;
+            }
+
+            if (binTree.binTree.left(binTree.binTree.parent(pos)) == pos) {
+                return leftChild;
+            }
+            return rightChild;
+        }
     }
+
     /**
      * Rebalance method called by insert and remove. Traverses the path from p
      * to the root. For each node encountered, we recompute its height and
      * perform a trinode restructuring if it's unbalanced.
      */
+
     private void rebalance(Position<AVLInfo<E>> zPos) {
-        while(!(binTree.binaryTree.isRoot(zPos))){
+        //Vamos de abajo a arriba hasta la raiz
+        while(zPos != null){
             if(!isBalanced(zPos)){
-                zPos =
-                reestructurator.restructure(zPos, binTree.binaryTree);
+                calculateHeight(zPos); //Actualiza la altura de zpos
+                if(!(isBalanced(zPos))){
+                    //Estamos en zPos. A reestruct le falta el xPos
+                    Position<AVLInfo<E>> xPos = tallerChild(tallerChild(zPos)); // Cogemos el hijo mas alto para x e y
+                    zPos = reestructurator.restructure(xPos, binTree.binTree); // Return medium
+                    calculateHeight(binTree.binTree.left(zPos));
+                    calculateHeight(binTree.binTree.right(zPos));
+                    calculateHeight(zPos); //Cambiamos medium por la izda, derecha y la raiz
+                }
+                zPos = binTree.binTree.parent(zPos);
             }
         }
 
@@ -158,7 +223,11 @@ public class AVLTree<E> implements BinarySearchTree<E> {
 
     @Override
     public E remove(Position<E> pos) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        AVLInfo<E> p = checkPosition(pos);
+        E toReturn = pos.getElement();
+        binTree.remove(p.getTreePosition());
+        //TODO
+        return null;
     }
 
     @Override
@@ -166,9 +235,33 @@ public class AVLTree<E> implements BinarySearchTree<E> {
         return binTree.size();
     }
 
+    private AVLInfo<E> checkPosition(Position<E> p) throws RuntimeException {
+        if (p == null) {
+            throw new RuntimeException("The position of the AVL node is null");
+        } else if (!(p instanceof AVLInfo)) {
+            throw new RuntimeException("The position of the AVL node is not AVL");
+        } else {
+            AVLInfo<E> aux = (AVLInfo<E>) p;
+            return aux;
+        }
+    }
+
+
     @Override
     public Iterable<Position<E>> findRange(E minValue, E maxValue) throws RuntimeException {
-        return null;
+        ArrayList<Position<E>> list = new ArrayList<>();
+        Iterator<Position<E>> iterator = iterator();
+        Comparator<E> comparator = new DefaultComparator<>();
+        if (comparator.compare(minValue,maxValue)>0){
+            throw new RuntimeException("min>maxvalue");
+        }
+        while (iterator.hasNext()){
+            Position<E> next = iterator.next();
+            if((comparator.compare(next.getElement(), minValue)>0) && (comparator.compare(maxValue, next.getElement())>0)){
+                list.add(next);
+            }
+        }
+        return list;
     }
 
     @Override
@@ -183,12 +276,34 @@ public class AVLTree<E> implements BinarySearchTree<E> {
 
     @Override
     public Iterable<Position<E>> successors(Position<E> pos) {
-        return null;
+        Iterator<Position<E>> it = iterator();
+        ArrayList<Position<E>> resul = new ArrayList<>();
+        Comparator<E> comparator = new DefaultComparator<>();
+        if (!binTree.binTree.isEmpty()) {
+            while (it.hasNext()) {
+                Position<E> next = it.next();
+                if (comparator.compare(next.getElement(), pos.getElement()) > 0) {
+                    resul.add(next);
+                }
+            }
+        }
+        return resul;
     }
 
     @Override
     public Iterable<Position<E>> predecessors(Position<E> pos) {
-        return null;
+        Iterator<Position<E>> it = iterator();
+        ArrayList<Position<E>> resul = new ArrayList<>();
+        Comparator<E> comparator = new DefaultComparator<>();
+        if (!binTree.binTree.isEmpty()) {
+            while (it.hasNext()) {
+                Position<E> next = it.next();
+                if (comparator.compare(next.getElement(), pos.getElement()) < 0) {
+                    resul.add(next);
+                }
+            }
+        }
+        return resul;
     }
 
     public Iterable<? extends Position<E>> rangeIterator(E m, E M) {
@@ -197,7 +312,8 @@ public class AVLTree<E> implements BinarySearchTree<E> {
 
     @Override
     public Iterator<Position<E>> iterator() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Iterator<Position<AVLInfo<E>>> it = binTree.iterator();
+        return new AVLIterator<E>(it);
     }
 
 }

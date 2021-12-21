@@ -1,5 +1,6 @@
 package binarysearchtree;
 
+import Iterators.InorderBinaryTreeIterator;
 import binaryTree.LinkedBinaryTree;
 import material.Position;
 
@@ -8,127 +9,115 @@ import java.util.*;
 
 public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
 
+    protected LinkedBinaryTree<E> binTree;
+    protected Comparator<E> comparator;
+    protected int size = 0;
 
-    // Clase iterador
-    private class BSTIterator<T> implements Iterator<Position<T>> {
-
-        private LinkedBinaryTree<T> binaryTree;
-        private int notVisited;
-        Iterator<Position<T>> it;
-
-        public BSTIterator(LinkedBinaryTree<T> binaryTree) {
-            this.binaryTree = binaryTree;
-            this.notVisited = binaryTree.size();
-            this.it = binaryTree.iterator();
-        }
-
-        @Override
-        public boolean hasNext() {
-            return notVisited > 0;
-        }
-
-        @Override
-        public Position<T> next() {
-            if (notVisited == 0) {
-                throw new RuntimeException("This tree has no more elements");
-            }
-            Position<T> next = it.next();
-            while (next == null) {
-                next = it.next();
-            }
-            notVisited--;
-            return next;
-        }
+    public LinkedBinarySearchTree(){
+        this(null);
     }
 
-    protected LinkedBinaryTree<E> binaryTree;
-    private Comparator<E> c;
-    private int size;
-
-    public LinkedBinarySearchTree() {
-        this(null); //MIRAR
+    public LinkedBinarySearchTree(Comparator<E> c){
+        if(c == null){
+            this.comparator = new DefaultComparator<>();
+        }
+        else{
+            this.comparator = c;
+        }
+        this.binTree = new LinkedBinaryTree<>();
     }
 
-    public LinkedBinarySearchTree(Comparator<E> comparator) {
-        if (comparator == null) this.c = new DefaultComparator<>();
+    /**
+     * Auxiliary method used by find, insert, and remove.
+     *
+     * @param value the value searched
+     * @param pos the position to start the search
+     * @return the position where value is stored
+     */
+    protected Position<E> treeSearch(E value, Position<E> pos) throws IllegalStateException, IndexOutOfBoundsException {
+        E posValue = pos.getElement();
+        int comp = comparator.compare(value, posValue);
+        if ((comp < 0) && this.binTree.hasLeft(pos)) {
+            return treeSearch(value, this.binTree.left(pos)); // search left
+        } else if ((comp > 0) && this.binTree.hasRight(pos)) {
+            return treeSearch(value, this.binTree.right(pos)); // search right
+        }
         else {
-            this.binaryTree = binaryTree;
-            this.c = comparator;
-            this.size = size;
-        }
-    }
-
-    @Override
-    public Position<E> find(E value) {
-        if (value == this.binaryTree.root().getElement()) {
-            return this.binaryTree.root();
-        } else {
-            return searchTree(this.binaryTree.root(), value);
-        }
-    }
-
-    private Position<E> searchTree(Position<E> pos, E value) {
-        if (binaryTree.isLeaf(pos)) {
-            //Si es una hoja devolvemos un nodo externo
-            return pos; //Creo q las hojas son nodos nulos que tienen al final
-        } else {
-            E current = pos.getElement();
-            int dif = c.compare(current, value);
-            //NEGATIVO -> SI 1º < 2º
-            if (dif < 0) {
-                searchTree(this.binaryTree.left(pos), value);
-            } else if (dif > 0) {
-                searchTree(this.binaryTree.right(pos), value);
-            }
             return pos;
         }
     }
 
-    private void addAll(E value, LinkedList<Position<E>> list, Position<E> aux) {
-        if (aux != null) {
-            Position<E> pos = searchTree(aux, value);
-            if (!(this.binaryTree.isLeaf(pos))) { // si no es hoja
-                //Ha encontrado una entrada con dicho valor...
-                //Buscamos por la izda... insercion por orden
-                addAll(value, list, this.binaryTree.left(pos));
-                list.add(pos);
-                addAll(value, list, this.binaryTree.right(pos));
-            }
+    /**
+     * Adds to L all entries in the subtree rooted at v having keys equal to k.
+     */
+    protected void addAll(List<Position<E>> l, Position<E> pos, E value) {
+        if (this.binTree.isLeaf(pos)) {
+            return;
         }
+        Position<E> p = treeSearch(value, pos);
+        if (!this.binTree.isLeaf(p)) { // we found an entry with key equal to k
+            addAll(l, this.binTree.left(p), value);
+            l.add(p); // add entries in inorder
+            addAll(l, this.binTree.right(p), value);
+        } // this recursive algorithm is simple, but it's not the fastest
     }
 
     @Override
-    public Iterable<Position<E>> findAll(E value) {
-        LinkedList<Position<E>> list = new LinkedList<>();
-        addAll(value, list, binaryTree.root());
-        return list;
+    public Position<E> find(E value) {
+        if(isEmpty()){
+            return null;
+        }
+        Position<E> pos = treeSearch(value, this.binTree.root());
+        if(pos.getElement() == value){
+            return pos;
+        }
+        return null;
+    }
+
+    @Override
+    public Iterable<? extends Position<E>> findAll(E value) {
+        List<Position<E>> l = new LinkedList<>();
+//        addAll(l, this.binTree.root(), value);
+        Position<E> node = treeSearch(value, this.binTree.root());
+        if(comparator.compare(node.getElement(), value) == 0) {
+            l.add(node);
+        }
+        while(comparator.compare(successor(node).getElement(), node.getElement()) == 0){
+            l.add(node);
+            node = successor(node);
+        }
+
+        return l;
     }
 
     @Override
     public Position<E> insert(E value) {
-        Position<E> pos = searchTree(this.binaryTree.root(), value);
-        //Vamos a considerar aquellos que pueden tener valores repetidos...
-        while (!binaryTree.isLeaf(pos)) {
-            //Buscamos por la dcha
-            searchTree(binaryTree.right(pos), value);
+
+        if(this.binTree.isEmpty()){
+            size++;
+            return this.binTree.addRoot(value);
         }
-        return insertAtLeaf(pos, value);
+        else{
+            Position<E> node = treeSearch(value, this.binTree.root());
+            int c = this.comparator.compare(value, node.getElement());
+            Position<E> returnPos;
+            if(c == 0){
+                this.binTree.addRight(node, value);
+                size++;
+                return this.binTree.right(node);
+            }
+            if(c < 0){
+                returnPos = this.binTree.insertLeft(node, value);
+            }
+            else{ //c > 0
+                returnPos = this.binTree.insertRight(node, value);
+            }
+            size++;
+            return returnPos;
+        }
     }
 
-    protected void expandLeaf(Position<E> aux, E v1, E v2) {
-        if (!binaryTree.isLeaf(aux)) {
-            throw new RuntimeException("This is not a external node");
-        }
-        binaryTree.insertLeft(aux, v1);
-        binaryTree.insertRight(aux, v2);
-    }
 
-    private Position<E> insertAtLeaf(Position<E> pos, E value) {
-        expandLeaf(pos, null, null);
-        binaryTree.replace(pos, value);
-        this.size++;
-        return pos;
-    }
 
     @Override
     public boolean isEmpty() {
@@ -136,42 +125,34 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
     }
 
     @Override
-    public E remove(Position<E> pos) throws RuntimeException {
+    public E remove(Position<E> pos) {
         E toReturn = pos.getElement();
-        Position<E> r = getLeafToRemove(pos);
-        removeLeaf(r);
+        if(this.binTree.isLeaf(pos) || !this.binTree.hasRight(pos) || !this.binTree.hasLeft(pos)){
+            this.binTree.remove(pos);
+        }
+        else{
+            Position<E> succ = successor(pos);
+            this.binTree.swap(succ, pos);
+//            remove(pos);
+            this.binTree.remove(pos);
+        }
+        size--;
         return toReturn;
     }
 
-    private void removeLeaf(Position<E> remove) {
-        removeAboveLeaf(remove);
-        this.size--;
-    }
-
-    private void removeAboveLeaf(Position<E> remove) {
-        Position<E> parent = binaryTree.parent(remove);
-        binaryTree.remove(remove);
-        binaryTree.remove(parent); //Borramos el parent y la hoja a null que le hemos pasado
-    }
-
-    private Position<E> getLeafToRemove(Position<E> pos) {
-        //Caso simple: es HOJA
-        Position<E> resul = pos;
-        if (binaryTree.isLeaf(binaryTree.left(pos))) {
-            resul = binaryTree.left(pos); // esto pq le estoy pasando la hoja a NULL
-        } else if (binaryTree.isLeaf(binaryTree.right(pos))) {
-            resul = binaryTree.right(pos);
-        } else {
-            //Nodo interno
-            Position<E> swap = resul; //Guardamos para intercambio el que queremos borrar
-            //Buscamos el sucesor
-            resul = binaryTree.right(resul);
-            do {
-                resul = binaryTree.left(resul);
-            } while (binaryTree.isInternal(resul));
-            binaryTree.swap(swap, binaryTree.parent(resul));
+    public int removeReturn(Position<E> pos) throws IllegalStateException {
+        E remReturn;
+        if(this.binTree.isLeaf(pos) || !this.binTree.hasRight(pos) || !this.binTree.hasLeft(pos)){
+            remReturn = this.binTree.remove(pos);
         }
-        return resul;
+        else{
+            Position<E> succ = successor(pos);
+            this.binTree.swap(succ, pos);
+//            remove(pos);
+            remReturn = this.binTree.remove(pos);
+        }
+        size--;
+        return (int)remReturn;
     }
 
     @Override
@@ -179,170 +160,132 @@ public class LinkedBinarySearchTree<E> implements BinarySearchTree<E> {
         return this.size;
     }
 
-    @Override
-    public Iterable<Position<E>> findRange(E minValue, E maxValue) throws RuntimeException {
-        ArrayList<Position<E>> l = new ArrayList<>();
-        if (c.compare(minValue, maxValue) > 0) {
-            throw new RuntimeException("minvalue > maxvalue");
-        } else {
-            if (!binaryTree.isEmpty()) {
-                Position<E> root = this.binaryTree.root();
-                findRangeRec(l, root, minValue, maxValue);
-            }
+
+    public Iterable<? extends Position<E>> rangeIterator(E m, E M) {
+        List<Position<E>> l = new LinkedList<>();
+        Position<E> first = treeSearch(m, this.binTree.root());
+        l.add(first);
+        while(first.getElement() != M){
+            first = successor(first);
+            l.add(first);
         }
         return l;
     }
 
-    private void findRangeRec(ArrayList<Position<E>> l, Position<E> pos, E minValue, E maxValue) {
-        if (!binaryTree.isLeaf(pos)) {
-            //Fuera de rango
-            if (c.compare(pos.getElement(), minValue) < 0) {
-                findRangeRec(l, binaryTree.right(pos), minValue, maxValue);
-            } else if (c.compare(pos.getElement(), maxValue) > 0) {
-                findRangeRec(l, binaryTree.left(pos), minValue, maxValue);
-            }
-            //Dentro de rango
-            else {
-                findRangeRec(l, binaryTree.left(pos), minValue, maxValue);
-                l.add(pos);
-                findRangeRec(l, binaryTree.right(pos), minValue, maxValue);
-            }
-        }
-    }
-
-    @Override
-    public Position<E> first() throws RuntimeException {
-        if (binaryTree.isEmpty()) {
-            throw new RuntimeException("The tree is empty");
-        }
-        Position<E> f = binaryTree.root();
-        while (this.binaryTree.hasLeft(f)) {
-            f = binaryTree.left(f);
-        }
-        return this.binaryTree.parent(f); //Los nodos hoja NO contienen datos
-    }
-
-    @Override
-    public Position<E> last() throws RuntimeException {
-        if (binaryTree.isEmpty()) {
-            throw new RuntimeException("The tree is empty");
-        }
-        Position<E> f = binaryTree.root();
-        while (this.binaryTree.hasRight(f)) {
-            f = binaryTree.right(f);
-        }
-        return this.binaryTree.parent(f); //Los nodos hoja NO contienen datos
-    }
-
-    @Override
-    public Iterable<Position<E>> successors(Position<E> pos) {
-        return findRange(binaryTree.right(pos).getElement(), last().getElement());
-    }
-
-    @Override
-    public Iterable<Position<E>> predecessors(Position<E> pos) {
-        return findRange(first().getElement(), binaryTree.left(pos).getElement());
-    }
-
     @Override
     public Iterator<Position<E>> iterator() {
-        return new BSTIterator<>(binaryTree);
+        return new InorderBinaryTreeIterator<>(binTree);
     }
-}
-    //Clase reestructuracion
-    public class Reestructurator<E> extends LinkedBinaryTree<E> {
-        public Reestructurator(){
-            this.addRoot(null); //Constructor vacio
-        }
-        /**
-         * Performs a tri-node restructuring. Assumes the nodes are in one of
-         * following configurations:
-         *
-         * <pre>
-         *          z=c       z=c        z=a         z=a
-         *         /  \      /  \       /  \        /  \
-         *       y=b  t4   y=a  t4    t1  y=c     t1  y=b
-         *      /  \      /  \           /  \         /  \
-         *    x=a  t3    t1 x=b        x=b  t4       t2 x=c
-         *   /  \          /  \       /  \             /  \
-         *  t1  t2        t2  t3     t2  t3           t3  t4
-         * </pre>
-         *
-         * @return the new root of the restructured subtree
-         */
-        public Position restructure(Position posNode, LinkedBinaryTree binTree){
-            BTNode<E> low, medium, high, t1, t2, t3, t4;
-            //posNode = x
-            Position<E> posx = posNode;
-            Position<E> posy = binTree.parent(posNode); //Parent
-            Position<E> posz = binTree.parent(posy); //Grandparent
-            //Miramos si estan los deseq a la izda o a la derecha
-            boolean childLeft = (binTree.left(posz) == posy);
-            boolean grandChildLeft = (binTree.left(posy) == posx);
-            BTNode<E> node = (BTNode<E>) posNode;
-            BTNode<E> x = (BTNode<E>) posx;
-            BTNode<E> y = (BTNode<E>) posy;
-            BTNode<E> z = (BTNode<E>) posz;
 
-            //Primer caso: deseq izda-izda
-            if(childLeft && grandChildLeft){
-                low = x;
-                medium = y;
-                high = z;
-                t1 = low.getLeft();
-                t2 = low.getRight();
-                t3 = medium.getRight();
-                t4 = high.getRight();
-            }else if(childLeft && !grandChildLeft) { //Izda - dcha
-                low = y;
-                medium = x;
-                high = z;
-                t1 = low.getLeft();
-                t2 = medium.getLeft();
-                t3 = medium.getRight();
-                t4 = high.getRight();
-            }else if(!childLeft && grandChildLeft){
-                low = z;
-                medium = x;
-                high = y;
-                t1 = low.getLeft();
-                t2 = medium.getLeft();
-                t3 = medium.getRight();
-                t4 = high.getRight();
-            }else{
-                low = z;
-                medium = y;
-                high = x;
-                t1 = low.getLeft();
-                t2 = medium.getLeft();
-                t3 = high.getLeft();
-                t4 = high.getRight();
-            }
-            if (binTree.isRoot(posz)){
-                binTree.addRoot(medium);
-            }else{
-                BTNode<E> aux = (BTNode<E>)binTree.parent(posz);
-                if(binTree.left(aux) == posz){
-                    aux.setLeft(medium);
-                }else{
-                    aux.setRight(medium);
+    public Position<E> successor(Position<E> pos) {
+        if(this.binTree.hasRight(pos)){
+            return this.binTree.right(pos);
+        }
+        else{
+            Position<E> parent = this.binTree.parent(pos);
+            while(comparator.compare(parent.getElement(), pos.getElement()) <= 0){
+                if(this.binTree.isRoot(parent)){
+                    return null;
                 }
-                medium.setParent(aux);
+                parent = this.binTree.parent(parent);
             }
-            //CAMBIAMOS HIJOS Y PADRES
-            medium.setLeft(low);
-            medium.setRight(high);
-            low.setParent(medium);
-            low.setLeft(t1);
-            t1.setParent(low);
-            low.setRight(t2);
-            t2.setParent(low);
-            high.setParent(medium);
-            high.setLeft(t3);
-            t3.setParent(high);
-            high.setRight(t4);
-            t4.setParent(t3);
-            //RETORNAMOS LA "RAIZ" = MEDIUM
-            return medium;
+            return parent;
         }
     }
+
+    public Position<E> predecessor(Position<E> pos) {
+        if(this.binTree.hasLeft(pos)){
+            return this.binTree.left(pos);
+        }
+        else{
+            Position<E> parent = this.binTree.parent(pos);
+            while(comparator.compare(parent.getElement(), pos.getElement()) > 0){
+                if(this.binTree.isRoot(parent)){
+                    return null;
+                }
+                parent = this.binTree.parent(parent);
+            }
+            return parent;
+        }
+    }
+
+    public Iterable<Position<E>> successors(Position<E> pos) {
+        List<Position<E>> l = new LinkedList<>();
+        Iterator<Position<E>> it = this.iterator();
+        while (it.hasNext()) {
+            Position<E> next = it.next();
+            if (this.comparator.compare(next.getElement(), pos.getElement()) >= 0) {
+                l.add(next);
+            }
+
+        }
+        return l;
+    }
+
+    public Iterable<Position<E>> predecessors(Position<E> pos) {
+        List<Position<E>> l = new LinkedList<>();
+        Iterator<Position<E>> it = this.iterator();
+        while (it.hasNext()) {
+            Position<E> next = it.next();
+            if (this.comparator.compare(next.getElement(), pos.getElement()) <= 0) {
+                l.add(next);
+            }
+
+        }
+        Collections.reverse(l);
+        return l;
+    }
+
+    public Position<E> first(){
+        if(this.binTree.isEmpty()){
+            throw new RuntimeException("No first element.");
+        }
+        Position<E> node = this.binTree.root();
+        while(this.binTree.hasLeft(node)){
+            node = this.binTree.left(node);
+        }
+        return node;
+    }
+
+    public Position<E> last(){
+        if(this.binTree.isEmpty()){
+            throw new RuntimeException("No last element.");
+        }
+        Position<E> node = this.binTree.root();
+        while(this.binTree.hasRight(node)){
+            node = this.binTree.right(node);
+        }
+        return node;
+    }
+
+    @Override
+    public Iterable<Position<E>> findRange(E minValue, E maxValue) throws RuntimeException {
+        if(isEmpty()){
+            return null;
+        }
+        if(comparator.compare(minValue, maxValue) > 0){
+            throw new RuntimeException("Invalid range. (min>max)");
+        }
+        List<Position<E>> l = new LinkedList<>();
+
+        Position<E> nodeMin = treeSearch(minValue, this.binTree.root());
+        Position<E> nodeMax = treeSearch(maxValue, this.binTree.root());
+
+//        System.out.println("nodemin = " + nodeMin.getElement());
+//        System.out.println("nodemax = " + nodeMax.getElement());
+
+        if(comparator.compare(nodeMin.getElement(), maxValue) > 0 || comparator.compare(nodeMax.getElement(), minValue) < 0){
+            return l;
+        }
+        if(comparator.compare(nodeMin.getElement(), nodeMax.getElement()) <= 0) {
+            l.add(nodeMin);
+        }
+        while((successor(nodeMin) != null) && (comparator.compare(successor(nodeMin).getElement(), nodeMax.getElement()) <= 0)){
+            nodeMin = successor(nodeMin);
+            l.add(nodeMin);
+        }
+
+        return l;
+    }
+
+}

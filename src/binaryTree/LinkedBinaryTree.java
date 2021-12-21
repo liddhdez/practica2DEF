@@ -314,6 +314,13 @@ public class LinkedBinaryTree<E> implements BinaryTree<E> {
         return p.getElement();
     }
 
+    public void addRight(Position<E> node, E newNode){
+        BTNode<E> pos = checkPosition(node);
+        BTNode<E> newPos = new BTNode<E>(newNode, pos, null, null);
+        BTNode<E> newnewPos = pos.getRight();
+        pos.setRight(newPos);
+        newPos.setRight(newnewPos);
+    }
 
     @Override
     public void swap(Position<E> p1, Position<E> p2) {
